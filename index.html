@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Psychology Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.5rem; margin-bottom: 1rem; }
+    h3 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .subtitle { color: #94a3b8; margin-bottom: 2rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; }
+    .stat-label { color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: bold; }
+    .section { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; margin-bottom: 2rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group label { color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .form-group input, .form-group select { 
+      background: #334155; 
+      color: white; 
+      border: none; 
+      padding: 0.75rem; 
+      border-radius: 0.375rem;
+      font-size: 1rem;
+    }
+    .violations-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+    .violation-btn { 
+      background: #334155; 
+      color: #cbd5e1; 
+      border: none; 
+      padding: 0.75rem 1rem; 
+      border-radius: 0.375rem; 
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .violation-btn:hover { background: #475569; }
+    .violation-btn.active { background: #dc2626; color: white; }
+    .btn { 
+      background: #2563eb; 
+      color: white; 
+      border: none; 
+      padding: 0.75rem 1.5rem; 
+      border-radius: 0.375rem; 
+      font-size: 1rem; 
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn-full { width: 100%; padding: 1rem; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-small { padding: 0.5rem 1rem; font-size: 0.875rem; }
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+    .chart-container { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; }
+    .chart-wrapper { position: relative; height: 300px; }
+    .trade-item { 
+      background: #334155; 
+      padding: 1rem; 
+      border-radius: 0.375rem; 
+      margin-bottom: 0.5rem; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .trade-info { flex: 1; }
+    .trade-actions { display: flex; gap: 0.5rem; }
+    .trade-date { color: #94a3b8; font-size: 0.875rem; margin-bottom: 0.25rem; }
+    .trade-outcome { 
+      display: inline-block; 
+      padding: 0.25rem 0.5rem; 
+      border-radius: 0.25rem; 
+      font-size: 0.75rem; 
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .trade-outcome.win { background: #065f46; color: #6ee7b7; }
+    .trade-outcome.loss { background: #7f1d1d; color: #fca5a5; }
+    .trade-outcome.breakeven { background: #475569; color: #cbd5e1; }
+    .trade-violations { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .violation-tag { background: #7f1d1d; color: #fca5a5; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; }
+    .trade-profit { font-size: 1.25rem; font-weight: bold; white-space: nowrap; }
+    .trade-profit.positive { color: #6ee7b7; }
+    .trade-profit.negative { color: #fca5a5; }
+    .emotion-label { color: #94a3b8; font-size: 0.75rem; }
+    .market-label { 
+      display: inline-block;
+      background: #334155;
+      color: #94a3b8;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      margin-right: 0.5rem;
+    }
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+    .modal.active { display: flex; }
+    .modal-content { background: #1e293b; border-radius: 0.5rem; border: 1px solid #334155; padding: 2rem; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .modal-close { background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; padding: 0; width: 2rem; height: 2rem; }
+    .trait-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+    .trait-card { background: #334155; padding: 1rem; border-radius: 0.375rem; }
+    .trait-name { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    .trait-count { font-size: 1.5rem; font-weight: bold; color: #ef4444; }
+    .emotions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; }
+    .emotion-card { background: #334155; padding: 1rem; border-radius: 0.375rem; text-align: center; }
+    .emotion-name { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.5rem; text-transform: capitalize; }
+    .emotion-count { font-size: 1.5rem; font-weight: bold; margin-bottom: 0.25rem; }
+    .emotion-avg { font-size: 0.875rem; font-weight: 600; }
+    .emotion-violations { font-size: 0.75rem; color: #fca5a5; margin-top: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h1>Trading Psychology Tracker</h1>
+      <p class="subtitle">Master your mind, master your trades</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Trades</div>
+        <div class="stat-value" id="totalTrades">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Clean Trade Rate</div>
+        <div class="stat-value" id="cleanRate">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Violations</div>
+        <div class="stat-value" id="totalViolations">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Violations/Trade</div>
+        <div class="stat-value" id="avgViolations">0</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Log New Trade</h2>
+      
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="tradeDate">
+        </div>
+        <div class="form-group">
+          <label>Market</label>
+          <select id="tradeMarket">
+            <option value="forex">Forex</option>
+            <option value="crypto">Crypto</option>
+            <option value="stocks">Stocks</option>
+            <option value="futures">Futures</option>
+            <option value="options">Options</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Outcome</label>
+          <select id="tradeOutcome">
+            <option value="win">Win</option>
+            <option value="loss">Loss</option>
+            <option value="breakeven">Break Even</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>P&L ($)</label>
+          <input type="number" step="0.01" id="tradeProfit" value="0">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Pre-Trade Emotional State</label>
+        <select id="tradeEmotion">
+          <option value="calm">Calm</option>
+          <option value="confident">Confident</option>
+          <option value="anxious">Anxious</option>
+          <option value="fomo">FOMO</option>
+          <option value="revenge">Revenge</option>
+          <option value="bored">Bored</option>
+          <option value="overconfident">Overconfident</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="color: #94a3b8; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
+          Did you violate any of these? (Click all that apply)
+        </label>
+        <div class="violations-grid" id="violationsGrid"></div>
+      </div>
+
+      <button class="btn btn-full" onclick="addTrade()" id="saveTradeBtn">Add Trade</button>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-container">
+        <h3>Violation Frequency</h3>
+        <div class="chart-wrapper">
+          <canvas id="violationChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-container">
+        <h3>7-Day Violation Trend</h3>
+        <div class="chart-wrapper">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Individual Trait Breakdown</h3>
+      <div class="trait-stats" id="traitStats"></div>
+    </div>
+
+    <div class="section">
+      <h3>Emotional State Analysis</h3>
+      <div class="emotions-grid" id="emotionsGrid"></div>
+    </div>
+
+    <div class="section">
+      <h2>Recent Trades</h2>
+      <div id="tradesList"></div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Trade</h2>
+        <button class="modal-close" onclick="closeEditModal()">×</button>
+      </div>
+      
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="editDate">
+        </div>
+        <div class="form-group">
+          <label>Market</label>
+          <select id="editMarket">
+            <option value="forex">Forex</option>
+            <option value="crypto">Crypto</option>
+            <option value="stocks">Stocks</option>
+            <option value="futures">Futures</option>
+            <option value="options">Options</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Outcome</label>
+          <select id="editOutcome">
+            <option value="win">Win</option>
+            <option value="loss">Loss</option>
+            <option value="breakeven">Break Even</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>P&L ($)</label>
+          <input type="number" step="0.01" id="editProfit">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label>Pre-Trade Emotional State</label>
+        <select id="editEmotion">
+          <option value="calm">Calm</option>
+          <option value="confident">Confident</option>
+          <option value="anxious">Anxious</option>
+          <option value="fomo">FOMO</option>
+          <option value="revenge">Revenge</option>
+          <option value="bored">Bored</option>
+          <option value="overconfident">Overconfident</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="color: #94a3b8; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
+          Violations
+        </label>
+        <div class="violations-grid" id="editViolationsGrid"></div>
+      </div>
+
+      <button class="btn btn-full" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+
+  <script>
+    const traits = [
+      { id: 'overtrading', name: 'Overtrading' },
+      { id: 'emotional', name: 'Emotional Decision-Making' },
+      { id: 'discipline', name: 'Lack of Discipline' },
+      { id: 'ignoringMarket', name: 'Ignoring Market Conditions' },
+      { id: 'confirmation', name: 'Confirmation Bias' },
+      { id: 'cantAcceptLoss', name: 'Inability to Accept Losses' },
+      { id: 'overconfidence', name: 'Overconfidence After Wins' },
+      { id: 'analysisParalysis', name: 'Analysis Paralysis' },
+      { id: 'blaming', name: 'Blaming External Factors' }
+    ];
+
+    let trades = [];
+    let selectedViolations = [];
+    let editingTradeId = null;
+    let violationChart = null;
+    let trendChart = null;
+
+    function init() {
+      const saved = localStorage.getItem('tradingTrades');
+      if (saved) {
+        trades = JSON.parse(saved);
+      }
+
+      document.getElementById('tradeDate').valueAsDate = new Date();
+
+      renderViolationsGrid('violationsGrid', selectedViolations, toggleViolation);
+      renderViolationsGrid('editViolationsGrid', [], toggleEditViolation);
+
+      updateAll();
+    }
+
+    function renderViolationsGrid(containerId, active, toggleFn) {
+      const grid = document.getElementById(containerId);
+      grid.innerHTML = '';
+      traits.forEach(trait => {
+        const btn = document.createElement('button');
+        btn.className = 'violation-btn';
+        if (active.includes(trait.id)) btn.classList.add('active');
+        btn.textContent = trait.name;
+        btn.onclick = () => toggleFn(trait.id);
+        grid.appendChild(btn);
+      });
+    }
+
+    function toggleViolation(id) {
+      if (selectedViolations.includes(id)) {
+        selectedViolations = selectedViolations.filter(v => v !== id);
+      } else {
+        selectedViolations.push(id);
+      }
+      renderViolationsGrid('violationsGrid', selectedViolations, toggleViolation);
+    }
+
+    function toggleEditViolation(id) {
+      const trade = trades.find(t => t.id === editingTradeId);
+      if (!trade) return;
+
+      if (trade.violations.includes(id)) {
+        trade.violations = trade.violations.filter(v => v !== id);
+      } else {
+        trade.violations.push(id);
+      }
+      renderViolationsGrid('editViolationsGrid', trade.violations, toggleEditViolation);
+    }
+
+    function addTrade() {
+      const trade = {
+        id: Date.now(),
+        date: document.getElementById('tradeDate').value,
+        market: document.getElementById('tradeMarket').value,
+        outcome: document.getElementById('tradeOutcome').value,
+        profit: parseFloat(document.getElementById('tradeProfit').value),
+        emotion: document.getElementById('tradeEmotion').value,
+        violations: [...selectedViolations]
+      };
+
+      trades.unshift(trade);
+      saveTrades();
+
+      document.getElementById('tradeDate').valueAsDate = new Date();
+      document.getElementById('tradeMarket').value = 'forex';
+      document.getElementById('tradeOutcome').value = 'win';
+      document.getElementById('tradeProfit').value = '0';
+      document.getElementById('tradeEmotion').value = 'calm';
+      
+      selectedViolations = [];
+      renderViolationsGrid('violationsGrid', selectedViolations, toggleViolation);
+
+      updateAll();
+    }
+
+    function editTrade(id) {
+      const trade = trades.find(t => t.id === id);
+      if (!trade) return;
+
+      editingTradeId = id;
+      
+      document.getElementById('editDate').value = trade.date;
+      document.getElementById('editMarket').value = trade.market;
+      document.getElementById('editOutcome').value = trade.outcome;
+      document.getElementById('editProfit').value = trade.profit;
+      document.getElementById('editEmotion').value = trade.emotion;
+
+      renderViolationsGrid('editViolationsGrid', trade.violations, toggleEditViolation);
+
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('active');
+      editingTradeId = null;
+    }
+
+    function saveEdit() {
+      const trade = trades.find(t => t.id === editingTradeId);
+      if (!trade) return;
+
+      trade.date = document.getElementById('editDate').value;
+      trade.market = document.getElementById('editMarket').value;
+      trade.outcome = document.getElementById('editOutcome').value;
+      trade.profit = parseFloat(document.getElementById('editProfit').value);
+      trade.emotion = document.getElementById('editEmotion').value;
+
+      saveTrades();
+      closeEditModal();
+      updateAll();
+    }
+
+    function deleteTrade(id) {
+      if (!confirm('Are you sure you want to delete this trade?')) return;
+      
+      trades = trades.filter(t => t.id !== id);
+      saveTrades();
+      updateAll();
+    }
+
+    function saveTrades() {
+      localStorage.setItem('tradingTrades', JSON.stringify(trades));
+    }
+
+    function updateAll() {
+      updateStats();
+      updateCharts();
+      updateTraitStats();
+      updateEmotions();
+      renderTrades();
+    }
+
+    function updateStats() {
+      const totalViolations = trades.reduce((sum, t) => sum + t.violations.length, 0);
+      const cleanTrades = trades.filter(t => t.violations.length === 0).length;
+      const cleanRate = trades.length > 0 ? ((cleanTrades / trades.length) * 100).toFixed(1) : 0;
+      const avgViolations = trades.length > 0 ? (totalViolations / trades.length).toFixed(2) : 0;
+
+      document.getElementById('totalTrades').textContent = trades.length;
+      document.getElementById('cleanRate').textContent = cleanRate + '%';
+      document.getElementById('totalViolations').textContent = totalViolations;
+      document.getElementById('avgViolations').textContent = avgViolations;
+    }
+
+    function updateCharts() {
+      const violationCounts = {};
+      traits.forEach(trait => {
+        violationCounts[trait.name] = trades.filter(t => t.violations.includes(trait.id)).length;
+      });
+
+      const ctx1 = document.getElementById('violationChart');
+      if (violationChart) violationChart.destroy();
+      violationChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(violationCounts),
+          datasets: [{
+            label: 'Violations',
+            data: Object.values(violationCounts),
+            backgroundColor: '#ef4444'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            x: { ticks: { color: '#94a3b8', maxRotation: 45, minRotation: 45 }, grid: { display: false } }
+          }
+        }
+      });
+
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayTrades = trades.filter(t => t.date === dateStr);
+        const violations = dayTrades.reduce((sum, t) => sum + t.violations.length, 0);
+        
+        last7Days.push({
+          date: dateStr.slice(5),
+          violations,
+          trades: dayTrades.length
+        });
+      }
+
+      const ctx2 = document.getElementById('trendChart');
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: last7Days.map(d => d.date),
+          datasets: [
+            {
+              label: 'Violations',
+              data: last7Days.map(d => d.violations),
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              tension: 0.4
+            },
+            {
+              label: 'Trades',
+              data: last7Days.map(d => d.trades),
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94a3b8' } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+          }
+        }
+      });
+    }
+
+    function updateTraitStats() {
+      const container = document.getElementById('traitStats');
+      container.innerHTML = '';
+
+      traits.forEach(trait => {
+        const count = trades.filter(t => t.violations.includes(trait.id)).length;
+        const div = document.createElement('div');
+        div.className = 'trait-card';
+        div.innerHTML = `
+          <div class="trait-name">${trait.name}</div>
+          <div class="trait-count">${count}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateEmotions() {
+      const emotions = ['calm', 'confident', 'anxious', 'fomo', 'revenge', 'bored', 'overconfident'];
+      const container = document.getElementById('emotionsGrid');
+      container.innerHTML = '';
+
+      emotions.forEach(emotion => {
+        const emotionTrades = trades.filter(t => t.emotion === emotion);
+        const count = emotionTrades.length;
+        const avgProfit = count > 0
+          ? (emotionTrades.reduce((sum, t) => sum + t.profit, 0) / count).toFixed(2)
+          : '0.00';
+        const violations = emotionTrades.reduce((sum, t) => sum + t.violations.length, 0);
+
+        const div = document.createElement('div');
+        div.className = 'emotion-card';
+        div.innerHTML = `
+          <div class="emotion-name">${emotion}</div>
+          <div class="emotion-count">${count}</div>
+          <div class="emotion-avg ${parseFloat(avgProfit) >= 0 ? 'positive' : 'negative'}"">
+            $${avgProfit}
+          </div>
+          <div class="emotion-violations">${violations} violations</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function renderTrades() {
+      const list = document.getElementById('tradesList');
+      list.innerHTML = '';
+
+      trades.slice(0, 30).forEach(trade => {
+        const div = document.createElement('div');
+        div.className = 'trade-item';
+        
+        const profitClass = trade.profit >= 0 ? 'positive' : 'negative';
+        
+        let violationsHTML = '';
+        if (trade.violations.length > 0) {
+          violationsHTML = '<div class="trade-violations">';
+          trade.violations.forEach(v => {
+            const trait = traits.find(t => t.id === v);
+            if (trait) {
+              violationsHTML += `<span class="violation-tag">${trait.name}</span>`;
+            }
+          });
+          violationsHTML += '</div>';
+        }
+
+        div.innerHTML = `
+          <div class="trade-info">
+            <div class="trade-date">
+              ${trade.date} 
+              <span class="market-label">${trade.market}</span>
+              <span class="emotion-label">(${trade.emotion})</span>
+            </div>
+            <div>
+              <span class="trade-outcome ${trade.outcome}">${trade.outcome}</span>
+            </div>
+            ${violationsHTML}
+          </div>
+          <div class="trade-profit ${profitClass}">$${trade.profit.toFixed(2)}</div>
+          <div class="trade-actions">
+            <button class="btn btn-small" onclick="editTrade(${trade.id})">Edit</button>
+            <button class="btn btn-small btn-danger" onclick="deleteTrade(${trade.id})">Delete</button>
+          </div>
+        `;
+        
+        list.appendChild(div);
+      });
+
+      if (trades.length === 0) {
+        list.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 2rem;">No trades logged yet. Start tracking!</p>';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
